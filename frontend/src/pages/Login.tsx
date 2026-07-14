@@ -7,7 +7,7 @@ export default function Login() {
         Playlist Curator
       </h1>
       <p className="max-w-md text-lg text-violet-300/80">
-        Reshape your Spotify playlists around any theme, with AI doing the digging.
+        Reshape your Spotify playlists around any theme.
       </p>
       <a
         href={`${API_URL}/auth/login`}

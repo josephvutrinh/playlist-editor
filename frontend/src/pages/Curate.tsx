@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { curatePlaylist } from "../api";
+import { applyChanges, curatePlaylist } from "../api";
 import DiffRow, { type RowKind } from "../components/DiffRow";
 import FloatingPrompt from "../components/FloatingPrompt";
 import { usePreview } from "../hooks/usePreview";
 import type { Track } from "../types";
 
-type Step = "theme" | "add" | "loading" | "review";
+type Step = "theme" | "add" | "audio" | "loading" | "review" | "apply";
 
 interface Row {
   kind: RowKind;
@@ -23,15 +23,21 @@ export default function Curate() {
 
   const [step, setStep] = useState<Step>("theme");
   const [theme, setTheme] = useState("");
+  const [addSongs, setAddSongs] = useState(false);
+  const [audioOn, setAudioOn] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [resolvedName, setResolvedName] = useState(playlistName);
   const [error, setError] = useState<string | null>(null);
+  const [applyBusy, setApplyBusy] = useState(false);
+  const [applyDone, setApplyDone] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
   const preview = usePreview();
 
-  async function runCurate(chosenTheme: string, addSongs: boolean) {
+  async function runCurate(withAudio: boolean) {
+    setAudioOn(withAudio);
     setStep("loading");
     try {
-      const result = await curatePlaylist(id!, chosenTheme, addSongs);
+      const result = await curatePlaylist(id!, theme, addSongs, withAudio);
       setResolvedName(result.playlist_name);
       setRows([
         ...result.tracks.map((t) => ({
@@ -51,6 +57,20 @@ export default function Curate() {
     } catch (e) {
       setError((e as Error).message);
       setStep("review");
+    }
+  }
+
+  async function runApply(mode: "new" | "replace") {
+    setApplyBusy(true);
+    setApplyError(null);
+    try {
+      const uris = rows.filter((r) => r.included).map((r) => r.track.uri);
+      await applyChanges(id!, mode, uris);
+      setApplyDone(true);
+      setTimeout(() => navigate("/"), 1500);
+    } catch (e) {
+      setApplyError((e as Error).message);
+      setApplyBusy(false);
     }
   }
 
@@ -74,8 +94,9 @@ export default function Curate() {
       <>
         {backToPlaylists}
         <FloatingPrompt
-          question={`What theme should “${playlistName}” follow?`}
+          question={`What is the theme of “${playlistName}”?`}
           placeholder="e.g. late-night drive, 90s hip hop, cozy acoustic…"
+          initialValue={theme}
           onSubmit={(value) => {
             setTheme(value);
             setStep("add");
@@ -87,44 +108,137 @@ export default function Curate() {
 
   if (step === "add") {
     return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-10 px-6 text-center">
+      <div className="flex min-h-[90vh] flex-col items-center justify-center gap-10 px-6 text-center">
         {backToPlaylists}
         <h1 className="max-w-2xl text-3xl font-semibold text-violet-100 sm:text-4xl">
-          Should I also add new songs that fit “{theme}”?
+          Would you like to add songs that fit “{theme}”?
         </h1>
         <div className="flex gap-6">
           <button
-            onClick={() => runCurate(theme, true)}
+            onClick={() => {
+              setAddSongs(true);
+              setStep("audio");
+            }}
             className="rounded-full bg-violet-600 px-8 py-3 text-lg font-semibold transition-transform hover:scale-105"
           >
             Yes, add songs
           </button>
           <button
-            onClick={() => runCurate(theme, false)}
+            onClick={() => {
+              setAddSongs(false);
+              setStep("audio");
+            }}
             className="rounded-full border border-violet-500/40 px-8 py-3 text-lg font-semibold text-violet-200 transition-colors hover:bg-white/10"
           >
             No, just trim
           </button>
         </div>
+        <button
+          onClick={() => setStep("theme")}
+          className="text-sm text-violet-300/60 hover:text-violet-200"
+        >
+          ← Back
+        </button>
+      </div>
+    );
+  }
+
+  if (step === "audio") {
+    return (
+      <div className="flex min-h-[90vh] flex-col items-center justify-center gap-10 px-6 text-center">
+        {backToPlaylists}
+        <h1 className="max-w-2xl text-3xl font-semibold text-violet-100 sm:text-4xl">
+          Deep Analysis?
+        </h1>
+        <p className="max-w-md text-violet-300/70">
+          Analyzes each track's 30-second preview — tempo, energy, mood. Deeper
+          results.
+        </p>
+        <div className="flex gap-6">
+          <button
+            onClick={() => runCurate(true)}
+            className="rounded-full bg-violet-600 px-8 py-3 text-lg font-semibold transition-transform hover:scale-105"
+          >
+            Yes, listen to previews
+          </button>
+          <button
+            onClick={() => runCurate(false)}
+            className="rounded-full border border-violet-500/40 px-8 py-3 text-lg font-semibold text-violet-200 transition-colors hover:bg-white/10"
+          >
+            No, metadata only
+          </button>
+        </div>
+        <button
+          onClick={() => setStep("add")}
+          className="text-sm text-violet-300/60 hover:text-violet-200"
+        >
+          ← Back
+        </button>
       </div>
     );
   }
 
   if (step === "loading") {
     return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-6 text-center">
+      <div className="flex min-h-[90vh] flex-col items-center justify-center gap-6 text-center">
         <div className="h-12 w-12 animate-spin rounded-full border-4 border-violet-500/30 border-t-violet-400" />
         <p className="animate-pulse text-xl text-violet-200">
           Curating “{resolvedName}” around “{theme}”…
         </p>
         <p className="text-sm text-violet-300/60">
-          Reading genres, listening with our mind's ear
+          {audioOn
+            ? "Listening to 30-second previews — this takes a minute"
+            : "Judging by titles, artists, and albums"}
         </p>
       </div>
     );
   }
 
   const finalCount = rows.filter((r) => r.included).length;
+
+  if (step === "apply") {
+    if (applyDone) {
+      return (
+        <div className="flex min-h-[90vh] flex-col items-center justify-center gap-4 text-center">
+          <p className="text-4xl">✅</p>
+          <h1 className="text-3xl font-semibold text-violet-100">Playlist saved!</h1>
+          <p className="text-violet-300/70">Taking you back to your playlists…</p>
+        </div>
+      );
+    }
+    return (
+      <div className="flex min-h-[90vh] flex-col items-center justify-center gap-10 px-6 text-center">
+        <h1 className="max-w-2xl text-3xl font-semibold text-violet-100 sm:text-4xl">
+          How do you want to save your updated playlist?
+        </h1>
+        {applyError && <p className="text-red-400">{applyError}</p>}
+        <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+          <button
+            disabled={applyBusy}
+            onClick={() => runApply("new")}
+            className="rounded-full bg-violet-600 px-8 py-3 text-lg font-semibold transition-transform hover:scale-105 disabled:opacity-40"
+          >
+            Create new playlist
+          </button>
+          <button
+            disabled={applyBusy}
+            onClick={() => runApply("replace")}
+            className="rounded-full border border-red-400/40 px-8 py-3 text-lg font-semibold text-red-200 transition-colors hover:bg-red-500/10 disabled:opacity-40"
+          >
+            Overwrite “{resolvedName}”
+          </button>
+        </div>
+        {applyBusy && <p className="animate-pulse text-violet-300/70">Talking to Spotify…</p>}
+        <button
+          disabled={applyBusy}
+          onClick={() => setStep("review")}
+          className="text-sm text-violet-300/60 hover:text-violet-200"
+        >
+          ← Back to review
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -166,16 +280,7 @@ export default function Curate() {
         <span className="text-violet-200">{finalCount} tracks in final playlist</span>
         <button
           disabled={finalCount === 0}
-          onClick={() =>
-            navigate("/apply", {
-              state: {
-                playlistId: id,
-                playlistName: resolvedName,
-                theme,
-                uris: rows.filter((r) => r.included).map((r) => r.track.uri),
-              },
-            })
-          }
+          onClick={() => setStep("apply")}
           className="rounded-full bg-violet-600 px-6 py-2 font-semibold transition-transform hover:scale-105 disabled:opacity-40"
         >
           Continue

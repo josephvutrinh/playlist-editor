@@ -3,7 +3,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from .. import curator, preview, spotify
+from .. import audio, curator, preview, spotify
 from ..session import get_session
 
 router = APIRouter(prefix="/api", tags=["playlists"])
@@ -15,6 +15,7 @@ class CurateRequest(BaseModel):
     playlist_id: str
     theme: str
     add_songs: bool = False
+    analyze_audio: bool = False
 
 
 class ApplyRequest(BaseModel):
@@ -38,7 +39,8 @@ async def curate(body: CurateRequest, session: dict = Depends(get_session)) -> d
     token = session["access_token"]
     tracks = await spotify.get_playlist_tracks(token, body.playlist_id)
 
-    removals = await curator.pick_removals(body.theme, tracks)
+    sound = await audio.analyze_playlist(tracks) if body.analyze_audio else None
+    removals = await curator.pick_removals(body.theme, tracks, sound)
 
     diff_tracks = [
         {

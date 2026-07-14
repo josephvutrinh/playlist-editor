@@ -37,9 +37,13 @@ numbered list of tracks (name, artists, album).
 
 Identify the tracks that do NOT fit the theme and should be removed. Use your \
 knowledge of the songs, artists, albums, and their genres, energy, and mood. \
+Some tracks include a "sound:" line with measured acoustic features from the \
+actual audio (tempo, energy, timbre, rhythm density, melodic vs beat-driven, \
+and whether the track is a sonic outlier in this playlist). Weigh how the track \
+actually sounds against the theme's vibe alongside what you know about it. \
 Be decisive but not overzealous: keep tracks that plausibly fit, and keep tracks \
-you don't recognize unless the artist or title clearly clashes with the theme. \
-Give each removal a short reason (under 12 words)."""
+you don't recognize unless the title or measured sound clearly clashes with the \
+theme. Give each removal a short reason (under 12 words)."""
 
 ADD_SYSTEM = """You are an expert music curator. Suggest real, well-known songs that \
 fit the user's theme and complement the tracks already in their playlist. Only \
@@ -48,18 +52,23 @@ artist name as they appear on streaming services. Do not suggest songs already i
 the playlist. Give each suggestion a short reason (under 12 words)."""
 
 
-def _format_track_line(index: int, track: dict) -> str:
+def _format_track_line(index: int, track: dict, audio: dict[str, str] | None) -> str:
     artists = ", ".join(track["artists"])
-    return f'{index}. "{track["name"]}" — {artists} — album: {track["album"]}'
+    line = f'{index}. "{track["name"]}" — {artists} — album: {track["album"]}'
+    if audio and track["id"] in audio:
+        line += f' — sound: {audio[track["id"]]}'
+    return line
 
 
-async def pick_removals(theme: str, tracks: list[dict]) -> dict[int, str]:
+async def pick_removals(
+    theme: str, tracks: list[dict], audio: dict[str, str] | None = None
+) -> dict[int, str]:
     """Returns {track_index: reason} for tracks Claude says don't fit the theme."""
     removals: dict[int, str] = {}
     for start in range(0, len(tracks), CHUNK_SIZE):
         chunk = tracks[start : start + CHUNK_SIZE]
         lines = "\n".join(
-            _format_track_line(start + i, t) for i, t in enumerate(chunk)
+            _format_track_line(start + i, t, audio) for i, t in enumerate(chunk)
         )
         prompt = (
             f"Theme: {theme}\n\n"

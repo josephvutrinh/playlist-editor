@@ -24,10 +24,20 @@ export const logout = () => request<{ ok: boolean }>("/auth/logout", { method: "
 
 export const getPlaylists = () => request<Playlist[]>("/api/playlists");
 
-export const curatePlaylist = (playlistId: string, theme: string, addSongs: boolean) =>
+export const curatePlaylist = (
+  playlistId: string,
+  theme: string,
+  addSongs: boolean,
+  analyzeAudio: boolean,
+) =>
   request<CurateResponse>("/api/curate", {
     method: "POST",
-    body: JSON.stringify({ playlist_id: playlistId, theme, add_songs: addSongs }),
+    body: JSON.stringify({
+      playlist_id: playlistId,
+      theme,
+      add_songs: addSongs,
+      analyze_audio: analyzeAudio,
+    }),
   });
 
 export const getPreview = (track: { id: string; name: string; artists: string[] }) =>

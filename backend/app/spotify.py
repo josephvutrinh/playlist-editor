@@ -1,19 +1,45 @@
 """Thin async client for the Spotify Web API endpoints this app uses."""
 
-from typing import Any
+import asyncio
 
 import httpx
 from fastapi import HTTPException
 
 API = "https://api.spotify.com/v1"
 
+# transient statuses worth retrying (rate limit + server/edge hiccups)
+_RETRYABLE = {429, 500, 502, 503, 504}
+_MAX_RETRIES = 3
+
 
 def _headers(access_token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {access_token}"}
 
 
+async def _send(
+    client: httpx.AsyncClient, method: str, url: str, access_token: str, **kwargs
+) -> httpx.Response:
+    """Request with retry/backoff on transient failures."""
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            resp = await client.request(method, url, headers=_headers(access_token), **kwargs)
+        except httpx.TransportError as exc:
+            if attempt == _MAX_RETRIES:
+                raise HTTPException(status_code=502, detail=f"Spotify unreachable: {exc}")
+            await asyncio.sleep(0.5 * 2**attempt)
+            continue
+        if resp.status_code not in _RETRYABLE or attempt == _MAX_RETRIES:
+            return resp
+        print(
+            f"[spotify] {resp.status_code} on {method} {url}, retry {attempt + 1}", flush=True
+        )
+        delay = float(resp.headers.get("Retry-After") or 0) or 0.5 * 2**attempt
+        await asyncio.sleep(min(delay, 10))
+    return resp
+
+
 async def _get(client: httpx.AsyncClient, access_token: str, url: str, **params) -> dict:
-    resp = await client.get(url, headers=_headers(access_token), params=params or None)
+    resp = await _send(client, "GET", url, access_token, params=params or None)
     if resp.status_code >= 400:
         print(f"[spotify] {resp.status_code} on GET {url} -> {resp.text}", flush=True)
         raise HTTPException(
@@ -115,9 +141,11 @@ def _check(resp: httpx.Response, action: str) -> None:
 async def create_playlist(access_token: str, name: str, description: str) -> dict:
     async with httpx.AsyncClient() as client:
         # POST /me/playlists replaced /users/{id}/playlists (Feb 2026 migration)
-        resp = await client.post(
+        resp = await _send(
+            client,
+            "POST",
             f"{API}/me/playlists",
-            headers=_headers(access_token),
+            access_token,
             json={"name": name, "description": description, "public": False},
         )
         _check(resp, "create playlist")
@@ -127,9 +155,11 @@ async def create_playlist(access_token: str, name: str, description: str) -> dic
 async def add_tracks(access_token: str, playlist_id: str, uris: list[str]) -> None:
     async with httpx.AsyncClient() as client:
         for i in range(0, len(uris), 100):
-            resp = await client.post(
+            resp = await _send(
+                client,
+                "POST",
                 f"{API}/playlists/{playlist_id}/items",
-                headers=_headers(access_token),
+                access_token,
                 json={"uris": uris[i : i + 100]},
             )
             _check(resp, "add tracks")
@@ -137,9 +167,11 @@ async def add_tracks(access_token: str, playlist_id: str, uris: list[str]) -> No
 
 async def replace_tracks(access_token: str, playlist_id: str, uris: list[str]) -> None:
     async with httpx.AsyncClient() as client:
-        resp = await client.put(
+        resp = await _send(
+            client,
+            "PUT",
             f"{API}/playlists/{playlist_id}/items",
-            headers=_headers(access_token),
+            access_token,
             json={"uris": uris[:100]},
         )
         _check(resp, "replace tracks")

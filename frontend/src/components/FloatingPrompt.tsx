@@ -3,16 +3,17 @@ import { useState } from "react";
 interface Props {
   question: string;
   placeholder?: string;
+  initialValue?: string;
   onSubmit: (value: string) => void;
 }
 
 /** Centered floating question; the user's answer renders inline as they type. */
-export default function FloatingPrompt({ question, placeholder, onSubmit }: Props) {
-  const [value, setValue] = useState("");
+export default function FloatingPrompt({ question, placeholder, initialValue, onSubmit }: Props) {
+  const [value, setValue] = useState(initialValue ?? "");
 
   return (
     <form
-      className="flex min-h-[70vh] flex-col items-center justify-center gap-8 px-6 text-center"
+      className="flex min-h-[90vh] flex-col items-center justify-center gap-8 px-6 text-center"
       onSubmit={(e) => {
         e.preventDefault();
         if (value.trim()) onSubmit(value.trim());
