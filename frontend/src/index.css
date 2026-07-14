@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: #0c0118;
+  color: #ede9fe;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* --- animated wave gradient background --- */
+
+@keyframes drift-a {
+  0% {
+    transform: translate(-12%, -8%) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate(10%, 6%) rotate(40deg) scale(1.15);
+  }
+  100% {
+    transform: translate(-12%, -8%) rotate(0deg) scale(1);
+  }
+}
+
+@keyframes drift-b {
+  0% {
+    transform: translate(15%, 10%) rotate(0deg) scale(1.1);
+  }
+  50% {
+    transform: translate(-10%, -12%) rotate(-50deg) scale(0.95);
+  }
+  100% {
+    transform: translate(15%, 10%) rotate(0deg) scale(1.1);
+  }
+}
+
+@keyframes drift-c {
+  0% {
+    transform: translate(-5%, 14%) scale(1);
+  }
+  50% {
+    transform: translate(8%, -10%) scale(1.25);
+  }
+  100% {
+    transform: translate(-5%, 14%) scale(1);
+  }
+}
+
+.wave-blob {
+  position: absolute;
+  width: 90vmax;
+  height: 90vmax;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.55;
+  will-change: transform;
+}
+
+.wave-blob-a {
+  top: -30%;
+  left: -20%;
+  background: radial-gradient(circle at 30% 30%, #4c1d95, transparent 65%);
+  animation: drift-a 26s ease-in-out infinite;
+}
+
+.wave-blob-b {
+  bottom: -35%;
+  right: -25%;
+  background: radial-gradient(circle at 70% 60%, #2d0a5e, transparent 60%);
+  animation: drift-b 32s ease-in-out infinite;
+}
+
+.wave-blob-c {
+  top: 15%;
+  left: 25%;
+  background: radial-gradient(circle at 50% 50%, #7c3aed, transparent 55%);
+  opacity: 0.28;
+  animation: drift-c 22s ease-in-out infinite;
+}

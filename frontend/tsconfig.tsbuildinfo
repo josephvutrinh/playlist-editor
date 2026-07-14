@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/components/diffrow.tsx","./src/components/floatingprompt.tsx","./src/components/wavebackground.tsx","./src/hooks/usepreview.ts","./src/pages/apply.tsx","./src/pages/curate.tsx","./src/pages/gallery.tsx","./src/pages/login.tsx"],"version":"5.7.3"}
