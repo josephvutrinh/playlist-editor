@@ -5,12 +5,15 @@ An app that lets you reshape your existing Spotify playlists using AI. Give it a
 ## Demo
 
 Browse the gallery & pick a playlist:
+
 ![Gallery](gallery.gif)
 
 Prompt screen:
+
 ![Prompt](prompt.gif)
 
 Accepting/denying changes and saving as a new playlist:
+
 ![Accept and deny changes](acceptdeny.gif)
 
 ## Features
