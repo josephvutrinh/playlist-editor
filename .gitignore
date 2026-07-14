@@ -16,8 +16,3 @@ dist/
 .DS_Store
 .idea/
 .vscode/
-
-#gifs
-acceptdeny.gif
-gallery.gif
-prompt.gif
